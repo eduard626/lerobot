@@ -60,7 +60,7 @@ def lekiwi_base_cameras_config() -> dict[str, CameraConfig]:
 @RobotConfig.register_subclass("lekiwi_base")
 @dataclass
 class LeKiwiBaseConfig(LeKiwiConfig):
-    cameras: dict[str, CameraConfig] = field(default_factory=lekiwi_base_cameras_config)
+    cameras: dict[str, CameraConfig] = field(default_factory=dict)
 
 
 @dataclass
