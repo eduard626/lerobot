@@ -49,6 +49,20 @@ class LeKiwiConfig(RobotConfig):
     use_degrees: bool = False
 
 
+def lekiwi_base_cameras_config() -> dict[str, CameraConfig]:
+    return {
+        "front": OpenCVCameraConfig(
+            index_or_path="/dev/video0", fps=30, width=640, height=480, rotation=Cv2Rotation.ROTATE_180
+        ),
+    }
+
+
+@RobotConfig.register_subclass("lekiwi_base")
+@dataclass
+class LeKiwiBaseConfig(LeKiwiConfig):
+    cameras: dict[str, CameraConfig] = field(default_factory=lekiwi_base_cameras_config)
+
+
 @dataclass
 class LeKiwiHostConfig:
     # Network Configuration
@@ -94,3 +108,9 @@ class LeKiwiClientConfig(RobotConfig):
 
     polling_timeout_ms: int = 15
     connect_timeout_s: int = 5
+
+
+@RobotConfig.register_subclass("lekiwi_base_client")
+@dataclass
+class LeKiwiBaseClientConfig(LeKiwiClientConfig):
+    cameras: dict[str, CameraConfig] = field(default_factory=lekiwi_base_cameras_config)

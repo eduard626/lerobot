@@ -24,15 +24,17 @@ import cv2
 import draccus
 import zmq
 
-from .config_lekiwi import LeKiwiConfig, LeKiwiHostConfig
-from .lekiwi import LeKiwi
+from lerobot.robots.config import RobotConfig
+from lerobot.robots.utils import make_robot_from_config
+
+from .config_lekiwi import LeKiwiBaseConfig, LeKiwiConfig, LeKiwiHostConfig  # noqa: F401
 
 
 @dataclass
 class LeKiwiServerConfig:
     """Configuration for the LeKiwi host script."""
 
-    robot: LeKiwiConfig = field(default_factory=LeKiwiConfig)
+    robot: RobotConfig = field(default_factory=LeKiwiConfig)
     host: LeKiwiHostConfig = field(default_factory=LeKiwiHostConfig)
 
 
@@ -60,7 +62,7 @@ class LeKiwiHost:
 @draccus.wrap()
 def main(cfg: LeKiwiServerConfig):
     logging.info("Configuring LeKiwi")
-    robot = LeKiwi(cfg.robot)
+    robot = make_robot_from_config(cfg.robot)
 
     logging.info("Connecting LeKiwi")
     robot.connect()

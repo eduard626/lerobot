@@ -33,7 +33,7 @@ from lerobot.utils.decorators import check_if_already_connected, check_if_not_co
 
 from ..robot import Robot
 from ..utils import ensure_safe_goal_position
-from .config_lekiwi import LeKiwiConfig
+from .config_lekiwi import LeKiwiBaseConfig, LeKiwiConfig
 
 logger = logging.getLogger(__name__)
 
@@ -415,3 +415,116 @@ class LeKiwi(Robot):
             cam.disconnect()
 
         logger.info(f"{self} disconnected.")
+
+
+class LeKiwiBase(LeKiwi):
+    """
+    A base-only LeKiwi with three omniwheel motors and no arm.
+    """
+
+    config_class = LeKiwiBaseConfig
+    name = "lekiwi_base"
+
+    def __init__(self, config: LeKiwiBaseConfig):
+        # Skip LeKiwi.__init__ to avoid registering arm motors.
+        Robot.__init__(self, config)
+        self.config = config
+        self.bus = FeetechMotorsBus(
+            port=self.config.port,
+            motors={
+                "base_left_wheel": Motor(7, "sts3215", MotorNormMode.RANGE_M100_100),
+                "base_back_wheel": Motor(8, "sts3215", MotorNormMode.RANGE_M100_100),
+                "base_right_wheel": Motor(9, "sts3215", MotorNormMode.RANGE_M100_100),
+            },
+            calibration=self.calibration,
+        )
+        self.arm_motors = []
+        self.base_motors = [motor for motor in self.bus.motors if motor.startswith("base")]
+        self.cameras = make_cameras_from_configs(config.cameras)
+
+    @property
+    def _state_ft(self) -> dict[str, type]:
+        return dict.fromkeys(
+            (
+                "x.vel",
+                "y.vel",
+                "theta.vel",
+            ),
+            float,
+        )
+
+    def configure(self):
+        self.bus.disable_torque()
+        self.bus.configure_motors()
+        for name in self.base_motors:
+            self.bus.write("Operating_Mode", name, OperatingMode.VELOCITY.value)
+        self.bus.enable_torque()
+
+    def calibrate(self) -> None:
+        if self.calibration:
+            user_input = input(
+                f"Press ENTER to use provided calibration file associated with the id {self.id}, "
+                "or type 'c' and press ENTER to run calibration: "
+            )
+            if user_input.strip().lower() != "c":
+                logger.info(f"Writing calibration file associated with the id {self.id} to the motors")
+                self.bus.write_calibration(self.calibration)
+                return
+        logger.info(f"\nRunning calibration of {self}")
+
+        self.bus.disable_torque(self.base_motors)
+
+        # Wheels are full-turn motors: fixed homing offset and full range.
+        homing_offsets = dict.fromkeys(self.base_motors, 0)
+        range_mins = dict.fromkeys(self.base_motors, 0)
+        range_maxes = dict.fromkeys(self.base_motors, 4095)
+
+        self.calibration = {}
+        for name, motor in self.bus.motors.items():
+            self.calibration[name] = MotorCalibration(
+                id=motor.id,
+                drive_mode=0,
+                homing_offset=homing_offsets[name],
+                range_min=range_mins[name],
+                range_max=range_maxes[name],
+            )
+
+        self.bus.write_calibration(self.calibration)
+        self._save_calibration()
+        print("Calibration saved to", self.calibration_fpath)
+
+    @check_if_not_connected
+    def get_observation(self) -> RobotObservation:
+        start = time.perf_counter()
+        base_wheel_vel = self.bus.sync_read("Present_Velocity", self.base_motors)
+        base_vel = self._wheel_raw_to_body(
+            base_wheel_vel["base_left_wheel"],
+            base_wheel_vel["base_back_wheel"],
+            base_wheel_vel["base_right_wheel"],
+        )
+        obs_dict = {**base_vel}
+        dt_ms = (time.perf_counter() - start) * 1e3
+        logger.debug(f"{self} read state: {dt_ms:.1f}ms")
+
+        for cam_key, cam in self.cameras.items():
+            start = time.perf_counter()
+            obs_dict[cam_key] = cam.read_latest()
+            dt_ms = (time.perf_counter() - start) * 1e3
+            logger.debug(f"{self} read {cam_key}: {dt_ms:.1f}ms")
+
+        return obs_dict
+
+    @check_if_not_connected
+    def send_action(self, action: RobotAction) -> RobotAction:
+        base_goal_vel = {k: v for k, v in action.items() if k.endswith(".vel")}
+        base_wheel_goal_vel = self._body_to_wheel_raw(
+            base_goal_vel["x.vel"], base_goal_vel["y.vel"], base_goal_vel["theta.vel"]
+        )
+        self.bus.sync_write("Goal_Velocity", base_wheel_goal_vel)
+        return base_goal_vel
+
+    def setup_motors(self) -> None:
+        for motor in reversed(self.base_motors):
+            input(f"Connect the controller board to the '{motor}' motor only and press enter.")
+            self.bus.setup_motor(motor)
+            print(f"'{motor}' motor id set to {self.bus.motors[motor].id}")

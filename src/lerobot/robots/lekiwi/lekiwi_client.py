@@ -28,7 +28,7 @@ from lerobot.utils.decorators import check_if_already_connected, check_if_not_co
 from lerobot.utils.errors import DeviceNotConnectedError
 
 from ..robot import Robot
-from .config_lekiwi import LeKiwiClientConfig
+from .config_lekiwi import LeKiwiBaseClientConfig, LeKiwiClientConfig
 
 
 class LeKiwiClient(Robot):
@@ -333,3 +333,24 @@ class LeKiwiClient(Robot):
         self.zmq_cmd_socket.close()
         self.zmq_context.term()
         self._is_connected = False
+
+
+class LeKiwiBaseClient(LeKiwiClient):
+    """Client for a base-only LeKiwi (no arm)."""
+
+    config_class = LeKiwiBaseClientConfig
+    name = "lekiwi_base_client"
+
+    def __init__(self, config: LeKiwiBaseClientConfig):
+        super().__init__(config)
+
+    @cached_property
+    def _state_ft(self) -> dict[str, type]:
+        return dict.fromkeys(
+            (
+                "x.vel",
+                "y.vel",
+                "theta.vel",
+            ),
+            float,
+        )
