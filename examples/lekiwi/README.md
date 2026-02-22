@@ -53,5 +53,9 @@ This uses keyboard only (WASD for movement, ZX for rotation, RF for speed).
 
 - Replace `remote_ip` in the client scripts with the actual IP address of your robot.
 - The host defaults to `--robot.type=lekiwi` (full robot). Pass `--robot.type=lekiwi_base` for base-only mode.
+- The host session defaults to 30 seconds (`connection_time_s=30`), after which it prints "Cycle time reached" and shuts down. Increase this for longer sessions:
+  ```bash
+  python -m lerobot.robots.lekiwi.lekiwi_host --robot.type=lekiwi_base --robot.id=my_lekiwi_base --host.connection_time_s=3600
+  ```
 - Motor IDs: arm uses 1-6, base wheels use 7 (left), 8 (back), 9 (right).
 - Keyboard controls: W/S forward/back, A/D strafe, Z/X rotate, R/F speed up/down, Q quit.
