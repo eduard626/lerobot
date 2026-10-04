@@ -59,3 +59,9 @@ This uses keyboard only (WASD for movement, ZX for rotation, RF for speed).
   ```
 - Motor IDs: arm uses 1-6, base wheels use 7 (left), 8 (back), 9 (right).
 - Keyboard controls: W/S forward/back, A/D strafe, Z/X rotate, R/F speed up/down, Q quit.
+- **Host/client communication** uses ZMQ ports **5555** (commands) and **5556** (observations). If the
+  client fails with `Timeout waiting for LeKiwi Host to connect expired` while the host is running
+  and the robot pings, a firewall on the robot is likely blocking those ports — e.g. open them with
+  `sudo ufw allow 5555/tcp && sudo ufw allow 5556/tcp`. Note that with a dynamically assigned
+  (DHCP) robot IP, `remote_ip` and any IP-restricted firewall rules can break after a reboot; set a
+  static IP / DHCP reservation to avoid re-checking each session.

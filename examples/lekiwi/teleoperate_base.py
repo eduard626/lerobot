@@ -27,7 +27,7 @@ FPS = 30
 def main():
     # Create the robot and teleoperator configurations
     # Note: Replace remote_ip with the actual IP of the robot
-    robot_config = LeKiwiBaseClientConfig(remote_ip="0.0.0.0", id="my_lekiwi_base")
+    robot_config = LeKiwiBaseClientConfig(remote_ip="192.168.1.192", id="my_lekiwi_base")
     keyboard_config = KeyboardTeleopConfig(id="my_laptop_keyboard")
 
     # Initialize the robot and teleoperator
@@ -37,6 +37,20 @@ def main():
     # Connect to the robot and teleoperator
     # On the LeKiwi, start the host first:
     # `python -m lerobot.robots.lekiwi.lekiwi_host --robot.type=lekiwi_base --robot.id=my_lekiwi_base`
+    #
+    # Troubleshooting "Timeout waiting for LeKiwi Host to connect expired":
+    # The client needs the host's ZMQ ports reachable: 5555 (commands) and 5556 (observations).
+    # If the host is running (on the robot: `ss -tlnp | grep -E '5555|5556'` shows LISTEN) and the
+    # robot pings, but the client still times out, a firewall on the robot is likely dropping those
+    # ports. With ufw (which may only allow SSH by default), open them on the robot:
+    #   sudo ufw allow from <laptop_ip> to any port 5555 proto tcp   # or: sudo ufw allow 5555/tcp
+    #   sudo ufw allow from <laptop_ip> to any port 5556 proto tcp   # or: sudo ufw allow 5556/tcp
+    # Verify from the laptop with: nc -zv <robot_ip> 5555 5556  (both should say "succeeded").
+    #
+    # Dynamic IPs (DHCP): if the router assigns IPs dynamically, the robot's address (remote_ip
+    # above) and any IP-restricted ufw rules can break after a reboot/lease change. Re-check the
+    # robot's current IP and update both when that happens, or set a DHCP reservation / static IP
+    # on the router so the address stays fixed.
     robot.connect()
     keyboard.connect()
 
